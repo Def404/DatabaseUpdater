@@ -1,5 +1,5 @@
 ﻿using DatabaseUpdater;
-using System.IO;
+using Npgsql;
 using System.Text;
 using System.Text.Json;
 
@@ -74,7 +74,34 @@ internal class Program
                 return;
             }
 
-            Console.WriteLine("Hello, World!");
+            var updateSqlCommands = updateSqlStr.Split("\n\n");  
+
+            foreach (var database in databases)
+            {
+                Console.WriteLine($"Start update {database.Name}");
+                try
+                {
+                    await using var dataSource = NpgsqlDataSource.Create(database.ConnectionString);
+                    await using var connection = await dataSource.OpenConnectionAsync();
+                    await using var transaction = await connection.BeginTransactionAsync();
+
+
+                    foreach (var commandStr in updateSqlCommands) 
+                    {
+                        await using var command = new NpgsqlCommand(commandStr, connection, transaction);
+                        Console.WriteLine(command.CommandText);
+                        await command.ExecuteNonQueryAsync();
+                    }
+
+                    await transaction.CommitAsync();
+                    Console.WriteLine($"Finish update {database.Name}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    continue;
+                }
+            }
         }
         else
         {
