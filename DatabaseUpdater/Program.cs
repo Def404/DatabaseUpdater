@@ -1,4 +1,5 @@
 ﻿using DatabaseUpdater;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using System.Text;
 using System.Text.Json;
@@ -7,12 +8,23 @@ internal class Program
 {
     private static async Task Main(string[] args)
     {
+        using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
+        ILogger logger = factory.CreateLogger("Program");
+
+        string helpText = @"Информация
+
+Параметры:
+-h: Информация о команде
+
+Аргументы: 
+[Путь к файлу с базами] [Путь к файлу с sql скриптом]";
 
         if (args.Length == 1)
         {
             if (args[0].Contains("-h"))
             {
-                Console.WriteLine("help");
+                logger.LogInformation(helpText);
+                return;
             }
         }
         else if (args.Length == 2)
@@ -22,13 +34,13 @@ internal class Program
 
             if (!Path.Exists(databaseFilePath))
             {
-                Console.WriteLine("Database file path not exists");
+                logger.LogError("Database file path not exists");
                 return;
             }
 
             if (!Path.Exists(updateSqlFilePath))
             {
-                Console.WriteLine("Update sql file path not exists");
+                logger.LogError("Update sql file path not exists");
                 return;
             }
 
@@ -45,7 +57,7 @@ internal class Program
 
             if (String.IsNullOrEmpty(databaseFileJson))
             {
-                Console.WriteLine("Database file is empty");
+                logger.LogError("Database file is empty");
                 return;
             }
 
@@ -53,7 +65,7 @@ internal class Program
 
             if (databases == null || databases.Count == 0) 
             {
-                Console.WriteLine("Database file is error");
+                logger.LogError("Database file is error");
                 return;
             }
 
@@ -70,7 +82,7 @@ internal class Program
 
             if (String.IsNullOrEmpty(updateSqlStr))
             {
-                Console.WriteLine("Update sql file is empty");
+                logger.LogError("Update sql file is empty");
                 return;
             }
 
@@ -78,7 +90,8 @@ internal class Program
 
             foreach (var database in databases)
             {
-                Console.WriteLine($"Start update {database.Name}");
+                logger.LogInformation($"Start database update: {database.Name}");
+                
                 try
                 {
                     await using var dataSource = NpgsqlDataSource.Create(database.ConnectionString);
@@ -89,23 +102,23 @@ internal class Program
                     foreach (var commandStr in updateSqlCommands) 
                     {
                         await using var command = new NpgsqlCommand(commandStr, connection, transaction);
-                        Console.WriteLine(command.CommandText);
+                        logger.LogInformation($"Command execute: {command.CommandText}");
                         await command.ExecuteNonQueryAsync();
                     }
 
                     await transaction.CommitAsync();
-                    Console.WriteLine($"Finish update {database.Name}");
+                    logger.LogInformation($"Finish database update {database.Name}");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.Message);
+                    logger.LogError(ex.Message );
                     continue;
                 }
             }
         }
         else
         {
-            Console.WriteLine("help");
+            logger.LogInformation(helpText);
             return;
         }
     }
