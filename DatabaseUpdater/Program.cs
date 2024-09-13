@@ -86,8 +86,6 @@ internal class Program
                 return;
             }
 
-            var updateSqlCommands = updateSqlStr.Split("\n\n");  
-
             foreach (var database in databases)
             {
                 logger.LogInformation($"Start database update: {database.Name}");
@@ -98,20 +96,16 @@ internal class Program
                     await using var connection = await dataSource.OpenConnectionAsync();
                     await using var transaction = await connection.BeginTransactionAsync();
 
-
-                    foreach (var commandStr in updateSqlCommands) 
-                    {
-                        await using var command = new NpgsqlCommand(commandStr, connection, transaction);
-                        logger.LogInformation($"Command execute: {command.CommandText}");
-                        await command.ExecuteNonQueryAsync();
-                    }
-
+                    await using var command = new NpgsqlCommand(updateSqlStr, connection, transaction);
+                    await command.ExecuteNonQueryAsync();
+                   
                     await transaction.CommitAsync();
                     logger.LogInformation($"Finish database update {database.Name}");
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex.Message );
+                    logger.LogError(ex.Message);
+                    logger.LogError($"No changes have been applied to the database: {database.Name}");
                     continue;
                 }
             }
