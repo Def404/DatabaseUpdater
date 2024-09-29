@@ -10,7 +10,7 @@
     },
     "DatabaseUpdater2": {
       "commandName": "Project",
-      "commandLineArgs": "D:/MyProject/databases.json D:/MyProject/updatesql.sql"
+      "commandLineArgs": "-f D:/MyProject/databases.json"
     }
   }
 }

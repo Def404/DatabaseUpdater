@@ -30,30 +30,29 @@ internal class Program
 
         if (args.Length == 0)
         { 
-            logger.LogInformation("Введите путь к файлу для подключения к базам данных\nДля выходы введите /q");
+            logger.LogInformation("Введите путь к файлу для подключения к базам данных. Для выходы введите !q");
 
             while (String.IsNullOrEmpty(_databaseFilePath))
             {
                 var databaseFilePath = Console.ReadLine();
 
-                
                 if (databaseFilePath == null || String.IsNullOrEmpty(databaseFilePath.Trim()))
                 {
                     logger.LogError("Для дальнейшей работы Вы должны обязательно ввести путь к файлу для полдключения к базам данных");
-                    logger.LogInformation("Для выходы введите /q");
+                    logger.LogInformation("Для выходы введите !q");
                     continue;
+                }
+
+                if (databaseFilePath.Equals("!q"))
+                {
+                    return;
                 }
 
                 if (!Path.Exists(databaseFilePath))
                 {
                     logger.LogError("Вы указали неверный путь к файлу для полдключения к базам данных");
-                    logger.LogInformation("Для выходы введите /q");
+                    logger.LogInformation("Для выходы введите !q");
                     continue;
-                }
-
-                if (databaseFilePath.Equals("/q"))
-                {
-                    return;
                 }
 
                 _databaseFilePath = databaseFilePath;
@@ -122,101 +121,60 @@ internal class Program
             return;
         }
 
-        /*if (args.Length == 1)
+        logger.LogInformation($"Было найдено {databases.Count} БД");
+
+        while (true)
         {
-            if (args[0].Contains("-h"))
-            {
-                logger.LogInformation(helpText);
-                return;
-            }
-        }
-        else if (args.Length == 2)
-        {
-            var databaseFilePath = args[0];
-            var updateSqlFilePath = args[1];
+            logger.LogInformation("Введите SQL команду. Чтобы закончить ввод команды введите !s. Чтобы выйти введите !q");
 
-            if (!Path.Exists(databaseFilePath))
-            {
-                logger.LogError("Database file path not exists");
-                return;
-            }
+            string sqlCommand = "";
+            string? line = "";
 
-            if (!Path.Exists(updateSqlFilePath))
+            line = Console.ReadLine();
+
+            while (line != null && !line.Equals("!s"))
             {
-                logger.LogError("Update sql file path not exists");
-                return;
+                if (line.Equals("!q"))
+                    return;
+
+                sqlCommand += line;
+                line = Console.ReadLine();
             }
 
-            var databaseFileJson = "";
+            Console.SetCursorPosition(0, Console.CursorTop - 1);
+            Console.Write("\r" + new string(' ', Console.BufferWidth) + "\r");
+            Console.WriteLine("================");
 
-            using (var fs = File.OpenRead(databaseFilePath))
+            if (!String.IsNullOrEmpty(sqlCommand.Trim()))
             {
-                byte[] buffer = new byte[fs.Length];
-
-                await fs.ReadAsync(buffer, 0, buffer.Length);
-
-                databaseFileJson = Encoding.Default.GetString(buffer);
-            }
-
-            if (String.IsNullOrEmpty(databaseFileJson))
-            {
-                logger.LogError("Database file is empty");
-                return;
-            }
-
-            var databases = JsonSerializer.Deserialize<List<Database>>(databaseFileJson);
-
-            if (databases == null || databases.Count == 0)
-            {
-                logger.LogError("Database file is error");
-                return;
-            }
-
-            var updateSqlStr = "";
-
-            using (var fs = File.OpenRead(updateSqlFilePath))
-            {
-                byte[] buffer = new byte[fs.Length];
-
-                await fs.ReadAsync(buffer, 0, buffer.Length);
-
-                updateSqlStr = Encoding.Default.GetString(buffer);
-            }
-
-            if (String.IsNullOrEmpty(updateSqlStr))
-            {
-                logger.LogError("Update sql file is empty");
-                return;
-            }
-
-            foreach (var database in databases)
-            {
-                logger.LogInformation($"Start database update: {database.Name}");
-
-                try
+                foreach (var database in databases)
                 {
-                    await using var dataSource = NpgsqlDataSource.Create(database.ConnectionString);
-                    await using var connection = await dataSource.OpenConnectionAsync();
-                    await using var transaction = await connection.BeginTransactionAsync();
+                    logger.LogInformation($"Start database update: {database.Name}");
 
-                    await using var command = new NpgsqlCommand(updateSqlStr, connection, transaction);
-                    await command.ExecuteNonQueryAsync();
+                    try
+                    {
+                        await using var dataSource = NpgsqlDataSource.Create(database.ConnectionString);
+                        await using var connection = await dataSource.OpenConnectionAsync();
+                        await using var transaction = await connection.BeginTransactionAsync();
 
-                    await transaction.CommitAsync();
-                    logger.LogInformation($"Finish database update {database.Name}");
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex.Message);
-                    logger.LogError($"No changes have been applied to the database: {database.Name}");
-                    continue;
+                        await using var command = new NpgsqlCommand(sqlCommand, connection, transaction);
+                        await command.ExecuteNonQueryAsync();
+
+                        await transaction.CommitAsync();
+                        logger.LogInformation($"Finish database update {database.Name}");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex.Message);
+                        logger.LogError($"No changes have been applied to the database: {database.Name}");
+                        continue;
+                    }
                 }
             }
+            else
+            {
+                logger.LogError("Вы ввели пустую SQL команду");
+            }
         }
-        else
-        {
-            logger.LogInformation(helpText);
-            return;
-        }*/
     }
 }
