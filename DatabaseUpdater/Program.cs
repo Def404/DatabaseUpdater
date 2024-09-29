@@ -152,7 +152,7 @@ internal class Program
 
                     Task task = new Task(() =>
                     {
-                        logger.LogInformation($"Start database update: {database.Name}");
+                        logger.LogInformation($"Начало обновления базы: {database.Name}");
 
                         try
                         {
@@ -164,17 +164,17 @@ internal class Program
                             command.ExecuteNonQuery();
 
                             transaction.Commit();
-                            logger.LogInformation($"Finish database update {database.Name}");
+                            logger.LogInformation($"Обновление бызы {database.Name} завершено");
                         }
                         catch (Exception ex)
                         {
                             logger.LogError(ex.Message);
-                            logger.LogError($"No changes have been applied to the database: {database.Name}");
+                            logger.LogError($"Для базы: {database.Name} не применились изменения, попробуйте еще раз");
                         }
                     });
 
                     task.Start();
-                    
+                    task.Wait();
                 }
             }
             else
@@ -182,10 +182,5 @@ internal class Program
                 logger.LogError("Вы ввели пустую SQL команду");
             }
         }
-    }
-
-    private static void ExecuteDb(ILogger logger)
-    {
-
     }
 }
