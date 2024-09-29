@@ -149,26 +149,32 @@ internal class Program
             {
                 foreach (var database in databases)
                 {
-                    logger.LogInformation($"Start database update: {database.Name}");
 
-                    try
+                    Task task = new Task(() =>
                     {
-                        await using var dataSource = NpgsqlDataSource.Create(database.ConnectionString);
-                        await using var connection = await dataSource.OpenConnectionAsync();
-                        await using var transaction = await connection.BeginTransactionAsync();
+                        logger.LogInformation($"Start database update: {database.Name}");
 
-                        await using var command = new NpgsqlCommand(sqlCommand, connection, transaction);
-                        await command.ExecuteNonQueryAsync();
+                        try
+                        {
+                            using var dataSource = NpgsqlDataSource.Create(database.ConnectionString);
+                            using var connection =  dataSource.OpenConnection();
+                            using var transaction = connection.BeginTransaction();
 
-                        await transaction.CommitAsync();
-                        logger.LogInformation($"Finish database update {database.Name}");
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex.Message);
-                        logger.LogError($"No changes have been applied to the database: {database.Name}");
-                        continue;
-                    }
+                            using var command = new NpgsqlCommand(sqlCommand, connection, transaction);
+                            command.ExecuteNonQuery();
+
+                            transaction.Commit();
+                            logger.LogInformation($"Finish database update {database.Name}");
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex.Message);
+                            logger.LogError($"No changes have been applied to the database: {database.Name}");
+                        }
+                    });
+
+                    task.Start();
+                    
                 }
             }
             else
@@ -176,5 +182,10 @@ internal class Program
                 logger.LogError("Вы ввели пустую SQL команду");
             }
         }
+    }
+
+    private static void ExecuteDb(ILogger logger)
+    {
+
     }
 }
