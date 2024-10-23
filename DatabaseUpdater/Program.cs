@@ -32,7 +32,7 @@ internal class Program
 				}
 				else
 				{
-					_logger.LogError("Вы указали неверный путь к файлу для полдключения к базам данных");
+					_logger.LogError("Указан неверный путь к файлу для подключения к базам данных.");
 					continue;
 				}
 			}
@@ -68,7 +68,7 @@ internal class Program
 			}
 			else
 			{
-				_logger.LogError("Неверные аргументы");
+				_logger.LogError("Неверные аргументы. Используйте -h для справки.");
 				return;
 			}
 		}
@@ -86,19 +86,19 @@ internal class Program
 			}
 			else
 			{
-				_logger.LogError("Неверные аргументы");
+				_logger.LogError("Неверные аргументы. Используйте -h для справки.");
 				return;
 			}
 			
 			if (String.IsNullOrEmpty(_databaseFilePath) || String.IsNullOrEmpty(_sqlFilePath))
 			{
-				_logger.LogError("Неверные аргументы");
+				_logger.LogError("Неверные аргументы. Используйте -h для справки.");
 				return;
 			}
 		}
 		else
 		{
-			_logger.LogError("Неверное количество аргументов");
+			_logger.LogError("Неверное количество аргументов. Используйте -h для справки.");
 			return;
 		}
 
@@ -108,13 +108,13 @@ internal class Program
 
 			if (databases == null || databases.Count == 0)
 			{
-				_logger.LogError("Не удалось получить базы данных из файла");
+				_logger.LogError("Не удалось получить базы данных из файла.");
 				return;
 			}
 
 			while (true)
 			{
-				_logger.LogInformation("Введите SQL команду. Чтобы закончить ввод команды введите !s.");
+				_logger.LogInformation("Введите SQL команду. Чтобы закончить ввод команды введите !s. Чтобы выйти из приложения введите !q");
 
 				string sqlCommand = "";
 				string? line = "";
@@ -156,7 +156,7 @@ internal class Program
 				}
 				else
 				{
-					_logger.LogError("Вы указали неверный путь к файлу для полдключения к базам данных");
+					_logger.LogError("Указан неверный путь к файлу для подключения к базам данных.");
 					continue;
 				}
 			}
@@ -165,7 +165,7 @@ internal class Program
 
 			if (databases == null || databases.Count == 0)
 			{
-				_logger.LogError("Не удалось получить базы данных из файла");
+				_logger.LogError("Не удалось получить базы данных из файла.");
 				return;
 			}
 			
@@ -173,7 +173,7 @@ internal class Program
 
 			if(String.IsNullOrEmpty(query))
 			{
-				_logger.LogError("Не удалось получить SQL запрос из файла");
+				_logger.LogError("Не удалось получить SQL запрос из файла.");
 				return;
 			}
 
@@ -187,7 +187,7 @@ internal class Program
 
 			if (databases == null || databases.Count == 0)
 			{
-				_logger.LogError("Не удалось получить базы данных из файла");
+				_logger.LogError("Не удалось получить базы данных из файла.");
 				return;
 			}
 
@@ -195,7 +195,7 @@ internal class Program
 
 			if (String.IsNullOrEmpty(query))
 			{
-				_logger.LogError("Не удалось получить SQL запрос из файла");
+				_logger.LogError("Не удалось получить SQL запрос из файла.");
 				return;
 			}
 
@@ -205,7 +205,7 @@ internal class Program
 		}
 		else
 		{
-			_logger.LogError("Неверные аргументы");
+			_logger.LogError("Неверные аргументы. Используйте -h для справки.");
 			return;
 		}
 	}
@@ -234,13 +234,13 @@ internal class Program
 
 			if (String.IsNullOrEmpty(databaseFileJson))
 			{
-				_logger.LogError("Файл для полдключения к базам данных пуст");
+				_logger.LogError("Файл для подключения к базам данных пуст.");
 				return databases;
 			}
 		}
 		catch (Exception ex)
 		{
-			_logger.LogError(ex.Message);
+			_logger.LogError($"Ошибка при чтении файла баз данных: {ex.Message}");
 			return databases;
 		}
 
@@ -250,17 +250,17 @@ internal class Program
 
 			if (databases == null || databases.Count == 0)
 			{
-				_logger.LogError("Не удалось прочитать информацию в файле");
+				_logger.LogError("Не удалось прочитать информацию в файле баз данных.");
 				return databases;
 			}
 		}
 		catch (Exception ex)
 		{
-			_logger.LogError(ex.Message);
+			_logger.LogError($"Ошибка при десериализации файла баз данных: {ex.Message}");
 			return databases;
 		}
 
-		_logger.LogInformation($"Базы данных {databases.Count} успешно загружены");
+		_logger.LogInformation($"Базы данных {databases.Count} успешно загружены.");
 
 		return databases;
 	}
@@ -282,13 +282,13 @@ internal class Program
 
 			if (String.IsNullOrEmpty(query))
 			{
-				_logger.LogError("Файл с sql запросом пуст");
+				_logger.LogError("Файл с SQL запросом пуст.");
 				return query;
 			}
 		}
 		catch (Exception ex)
 		{
-			_logger.LogError(ex.Message);
+			_logger.LogError($"Ошибка при чтении файла SQL запроса: {ex.Message}");
 			return query;
 		}
 
@@ -303,7 +303,7 @@ internal class Program
 			{
 				Task task = new Task(() =>
 				{
-					_logger.LogInformation($"Начало обновления базы: {database.Name}");
+					_logger.LogInformation($"Начало обновления базы данных: {database.Name}");
 
 					try
 					{
@@ -315,12 +315,13 @@ internal class Program
 						command.ExecuteNonQuery();
 
 						transaction.Commit();
-						_logger.LogInformation($"Обновление бызы {database.Name} завершено");
+
+						_logger.LogInformation($"Обновление базы данных {database.Name} завершено.");
 					}
 					catch (Exception ex)
 					{
-						_logger.LogError(ex.Message);
-						_logger.LogError($"Для базы: {database.Name} не применились изменения, попробуйте еще раз");
+						_logger.LogError($"Ошибка при обновлении базы данных {database.Name}: {ex.Message}");
+						_logger.LogError($"Для базы данных {database.Name} не применились изменения, попробуйте еще раз.");
 					}
 				});
 
@@ -330,7 +331,7 @@ internal class Program
 		}
 		else
 		{
-			_logger.LogError("Вы ввели пустую SQL команду");
+			_logger.LogError("Введена пустая SQL команда.");
 		}
 	}
 }
