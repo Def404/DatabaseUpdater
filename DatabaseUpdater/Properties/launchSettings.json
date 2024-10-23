@@ -1,16 +1,28 @@
 {
   "profiles": {
-    "DatabaseUpdater0": {
+    "NotArgs": {
       "commandName": "Project",
       "commandLineArgs": ""
     },
-    "DatabaseUpdater1": {
+    "HelpArg": {
       "commandName": "Project",
       "commandLineArgs": "-h"
     },
-    "DatabaseUpdater2": {
+    "DatabaseArg": {
       "commandName": "Project",
-      "commandLineArgs": "-f D:/MyProject/databases.json"
+      "commandLineArgs": "-d D:/MyProject/databases.json"
+    },
+    "SqlArg": {
+      "commandName": "Project",
+      "commandLineArgs": "-s D:/MyProject/query.sql"
+    },
+    "DatabaseAndSqlArg": {
+      "commandName": "Project",
+      "commandLineArgs": "-d D:/MyProject/databases.json -s D:/MyProject/query.sql"
+    },
+    "SqlAndDatabaselArg": {
+      "commandName": "Project",
+      "commandLineArgs": "-s D:/MyProject/query.sql -d D:/MyProject/databases.json"
     }
   }
 }

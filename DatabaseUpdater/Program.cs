@@ -6,181 +6,312 @@ using System.Text.Json;
 
 internal class Program
 {
-    private static string _databaseFilePath = "";
+	private static string _databaseFilePath = "";
+	private static string _sqlFilePath = "";
 
-    private static async Task Main(string[] args)
-    {
-        using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
-        ILogger logger = factory.CreateLogger("Program");
+	private static ILogger _logger;
 
-        string helpText = @"Информация
+	private static async Task Main(string[] args)
+	{
+		using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
+		_logger = factory.CreateLogger("Program");
 
-Параметры:
--h: Информация о команде
+		if (args.Length == 0)
+		{
+			var databaseFilePath = "";
 
-Аргументы: 
-[Путь к файлу с базами] [Путь к файлу с sql скриптом]";
+			while (String.IsNullOrEmpty(_databaseFilePath))
+			{
+				_logger.LogInformation("Введите путь к файлу для подключения к базам данных.");
+
+				databaseFilePath = Console.ReadLine();
+
+				if (IsValidFilePath(databaseFilePath))
+				{
+					_databaseFilePath = databaseFilePath;
+				}
+				else
+				{
+					_logger.LogError("Вы указали неверный путь к файлу для полдключения к базам данных");
+					continue;
+				}
+			}
+		}
+		else if (args.Length == 2)
+		{
+			if (args[0].Equals("-d") && IsValidFilePath(args[1]))
+			{
+				_databaseFilePath = args[1];
+			}
+			else if (args[0].Equals("-s") && IsValidFilePath(args[1]))
+			{
+				_sqlFilePath = args[1];
+			}
+			else
+			{
+				_logger.LogError("Неверные аргументы");
+				return;
+			}
+		}
+		else if (args.Length == 4)
+		{
+			if (args[0].Equals("-d") && IsValidFilePath(args[1]) && args[2].Equals("-s") && IsValidFilePath(args[3]))
+			{
+				_databaseFilePath = args[1];
+				_sqlFilePath = args[3];
+			}
+			else if (args[0].Equals("-s") && IsValidFilePath(args[1]) && args[2].Equals("-d") && IsValidFilePath(args[3]))
+			{
+				_sqlFilePath = args[1];
+				_databaseFilePath = args[3];
+			}
+			else
+			{
+				_logger.LogError("Неверные аргументы");
+				return;
+			}
+			
+			if (String.IsNullOrEmpty(_databaseFilePath) || String.IsNullOrEmpty(_sqlFilePath))
+			{
+				_logger.LogError("Неверные аргументы");
+				return;
+			}
+		}
+		else
+		{
+			_logger.LogError("Неверное количество аргументов");
+			return;
+		}
+
+		if (!String.IsNullOrEmpty(_databaseFilePath) && String.IsNullOrEmpty(_sqlFilePath))
+		{
+			var databases = await ReadDatabaseFileAsync(_databaseFilePath);
+
+			if (databases == null || databases.Count == 0)
+			{
+				_logger.LogError("Не удалось получить базы данных из файла");
+				return;
+			}
+
+			while (true)
+			{
+				_logger.LogInformation("Введите SQL команду. Чтобы закончить ввод команды введите !s.");
+
+				string sqlCommand = "";
+				string? line = "";
+
+				line = Console.ReadLine();
+
+				if (line != null && line.Equals("!q"))
+				{
+					return;
+				}
+
+				while (line != null && !line.Equals("!s"))
+				{
+					sqlCommand += line;
+					line = Console.ReadLine();
+				}
+
+				Console.SetCursorPosition(0, Console.CursorTop - 1);
+				Console.Write("\r" + new string(' ', Console.BufferWidth) + "\r");
+				Console.WriteLine("================");
 
 
-        /* Аргументы 
-         * [] -- пустой аргумент
-         * [-f] [путь к файлу с бд] -- путь к файлу с бд
-         */
+				await ExecuteSqlAsync(sqlCommand, databases);
+			}
+		}
+		else if (String.IsNullOrEmpty(_databaseFilePath) && !String.IsNullOrEmpty(_sqlFilePath))
+		{
+			var databaseFilePath = "";
 
+			while (String.IsNullOrEmpty(_databaseFilePath))
+			{
+				_logger.LogInformation("Введите путь к файлу для подключения к базам данных.");
 
-        if (args.Length == 0)
-        { 
-            logger.LogInformation("Введите путь к файлу для подключения к базам данных. Для выходы введите !q");
+				databaseFilePath = Console.ReadLine();
 
-            while (String.IsNullOrEmpty(_databaseFilePath))
-            {
-                var databaseFilePath = Console.ReadLine();
+				if (IsValidFilePath(databaseFilePath))
+				{
+					_databaseFilePath = databaseFilePath;
+				}
+				else
+				{
+					_logger.LogError("Вы указали неверный путь к файлу для полдключения к базам данных");
+					continue;
+				}
+			}
 
-                if (databaseFilePath == null || String.IsNullOrEmpty(databaseFilePath.Trim()))
-                {
-                    logger.LogError("Для дальнейшей работы Вы должны обязательно ввести путь к файлу для полдключения к базам данных");
-                    logger.LogInformation("Для выходы введите !q");
-                    continue;
-                }
+			var databases = await ReadDatabaseFileAsync(_databaseFilePath);
 
-                if (databaseFilePath.Equals("!q"))
-                {
-                    return;
-                }
+			if (databases == null || databases.Count == 0)
+			{
+				_logger.LogError("Не удалось получить базы данных из файла");
+				return;
+			}
+			
+			var query = await ReadSqlFileAsync(_sqlFilePath);
 
-                if (!Path.Exists(databaseFilePath))
-                {
-                    logger.LogError("Вы указали неверный путь к файлу для полдключения к базам данных");
-                    logger.LogInformation("Для выходы введите !q");
-                    continue;
-                }
+			if(String.IsNullOrEmpty(query))
+			{
+				_logger.LogError("Не удалось получить SQL запрос из файла");
+				return;
+			}
 
-                _databaseFilePath = databaseFilePath;
-            }
-        }
+			await ExecuteSqlAsync(query, databases);
 
-        if(args.Length == 2 && args[0].Equals("-f"))
-        {
-            var databaseFilePath = args[1];
+			return;
+		}
+		else if (!String.IsNullOrEmpty(_databaseFilePath) && !String.IsNullOrEmpty(_sqlFilePath))
+		{
+			var databases = await ReadDatabaseFileAsync(_databaseFilePath);
 
-            if (databaseFilePath == null || String.IsNullOrEmpty(databaseFilePath.Trim()))
-            {
-                logger.LogError("Для дальнейшей работы Вы должны обязательно ввести путь к файлу для полдключения к базам данных");
-                return;
-            }
+			if (databases == null || databases.Count == 0)
+			{
+				_logger.LogError("Не удалось получить базы данных из файла");
+				return;
+			}
 
-            if (!Path.Exists(databaseFilePath))
-            {
-                logger.LogError("Вы указали неверный путь к файлу для полдключения к базам данных");
-                return;
-            }
+			var query = await ReadSqlFileAsync(_sqlFilePath);
 
-            _databaseFilePath = databaseFilePath;
-        }
+			if (String.IsNullOrEmpty(query))
+			{
+				_logger.LogError("Не удалось получить SQL запрос из файла");
+				return;
+			}
 
-        var databaseFileJson = "";
+			await ExecuteSqlAsync(query, databases);
 
-        try
-        {
-            using (var fs = File.OpenRead(_databaseFilePath))
-            {
-                byte[] buffer = new byte[fs.Length];
+			return;
+		}
+		else
+		{
+			_logger.LogError("Неверные аргументы");
+			return;
+		}
+	}
 
-                await fs.ReadAsync(buffer, 0, buffer.Length);
+	private static bool IsValidFilePath(string? path)
+	{
+		return !String.IsNullOrEmpty(path) && Path.Exists(path);
+	}
 
-                databaseFileJson = Encoding.Default.GetString(buffer);
-            }
+	private static async Task<List<Database>?> ReadDatabaseFileAsync(string databasePath)
+	{
+		List<Database>? databases = new List<Database>();
 
-            if (String.IsNullOrEmpty(databaseFileJson))
-            {
-                logger.LogError("Файл для полдключения к базам данных пуст");
-                return;
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex.Message);
-            return;
-        }
+		var databaseFileJson = "";
 
-        var databases = new List<Database>();
+		try
+		{
+			using (var fs = File.OpenRead(databasePath))
+			{
+				byte[] buffer = new byte[fs.Length];
 
-        try
-        {
-            databases = JsonSerializer.Deserialize<List<Database>>(databaseFileJson);
+				await fs.ReadAsync(buffer, 0, buffer.Length);
 
-            if (databases == null || databases.Count == 0)
-            {
-                logger.LogError("Не удалось прочитать информацию в файле");
-                return;
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex.Message);
-            return;
-        }
+				databaseFileJson = Encoding.Default.GetString(buffer);
+			}
 
-        logger.LogInformation($"Было найдено {databases.Count} БД");
+			if (String.IsNullOrEmpty(databaseFileJson))
+			{
+				_logger.LogError("Файл для полдключения к базам данных пуст");
+				return databases;
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex.Message);
+			return databases;
+		}
 
-        while (true)
-        {
-            logger.LogInformation("Введите SQL команду. Чтобы закончить ввод команды введите !s. Чтобы выйти введите !q");
+		try
+		{
+			databases = JsonSerializer.Deserialize<List<Database>>(databaseFileJson);
 
-            string sqlCommand = "";
-            string? line = "";
+			if (databases == null || databases.Count == 0)
+			{
+				_logger.LogError("Не удалось прочитать информацию в файле");
+				return databases;
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex.Message);
+			return databases;
+		}
 
-            line = Console.ReadLine();
+		_logger.LogInformation($"Базы данных {databases.Count} успешно загружены");
 
-            while (line != null && !line.Equals("!s"))
-            {
-                if (line.Equals("!q"))
-                    return;
+		return databases;
+	}
 
-                sqlCommand += line;
-                line = Console.ReadLine();
-            }
+	private static async Task<string> ReadSqlFileAsync(string sqlPath)
+	{
+		var query = "";
 
-            Console.SetCursorPosition(0, Console.CursorTop - 1);
-            Console.Write("\r" + new string(' ', Console.BufferWidth) + "\r");
-            Console.WriteLine("================");
+		try
+		{
+			using (var fs = File.OpenRead(sqlPath))
+			{
+				byte[] buffer = new byte[fs.Length];
 
-            if (!String.IsNullOrEmpty(sqlCommand.Trim()))
-            {
-                foreach (var database in databases)
-                {
+				await fs.ReadAsync(buffer, 0, buffer.Length);
 
-                    Task task = new Task(() =>
-                    {
-                        logger.LogInformation($"Начало обновления базы: {database.Name}");
+				query = Encoding.Default.GetString(buffer);
+			}
 
-                        try
-                        {
-                            using var dataSource = NpgsqlDataSource.Create(database.ConnectionString);
-                            using var connection =  dataSource.OpenConnection();
-                            using var transaction = connection.BeginTransaction();
+			if (String.IsNullOrEmpty(query))
+			{
+				_logger.LogError("Файл с sql запросом пуст");
+				return query;
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex.Message);
+			return query;
+		}
 
-                            using var command = new NpgsqlCommand(sqlCommand, connection, transaction);
-                            command.ExecuteNonQuery();
+		return query;
+	}
 
-                            transaction.Commit();
-                            logger.LogInformation($"Обновление бызы {database.Name} завершено");
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.LogError(ex.Message);
-                            logger.LogError($"Для базы: {database.Name} не применились изменения, попробуйте еще раз");
-                        }
-                    });
+	private static async Task ExecuteSqlAsync(string sqlCommand, List<Database> databases)
+	{
+		if (!String.IsNullOrEmpty(sqlCommand.Trim()))
+		{
+			foreach (var database in databases)
+			{
+				Task task = new Task(() =>
+				{
+					_logger.LogInformation($"Начало обновления базы: {database.Name}");
 
-                    task.Start();
-                    task.Wait();
-                }
-            }
-            else
-            {
-                logger.LogError("Вы ввели пустую SQL команду");
-            }
-        }
-    }
+					try
+					{
+						using var dataSource = NpgsqlDataSource.Create(database.ConnectionString);
+						using var connection = dataSource.OpenConnection();
+						using var transaction = connection.BeginTransaction();
+
+						using var command = new NpgsqlCommand(sqlCommand, connection, transaction);
+						command.ExecuteNonQuery();
+
+						transaction.Commit();
+						_logger.LogInformation($"Обновление бызы {database.Name} завершено");
+					}
+					catch (Exception ex)
+					{
+						_logger.LogError(ex.Message);
+						_logger.LogError($"Для базы: {database.Name} не применились изменения, попробуйте еще раз");
+					}
+				});
+
+				task.Start();
+				task.Wait();
+			}
+		}
+		else
+		{
+			_logger.LogError("Вы ввели пустую SQL команду");
+		}
+	}
 }
