@@ -57,6 +57,25 @@ dotnet run -d путь/к/databaseFile.json -s путь/к/sqlScript.sql
 dotnet run -h
 ```
 
+## Запрещённые SQL-команды
+Приложение проверяет наличие запрещённых SQL-команд в предоставленном SQL-запросе. Следующие команды запрещены:
+
+- `CREATE DATABASE`
+- `DROP DATABASE`
+- `CREATE ROLE`
+- `ALTER ROLE`
+- `DROP ROLE`
+- `ALTER SYSTEM`
+- `CREATE EXTENSION`
+- `DROP EXTENSION`
+- `GRANT`
+- `REVOKE`
+- `DROP TABLE`
+- `DROP SCHEMA`
+- `TRUNCATE`
+
+Если в SQL-запросе будут обнаружены какие-либо из этих команд, приложение зафиксирует ошибку и не выполнит запрос.
+
 ## Логирование
 
 Приложение логирует информацию и ошибки в консоль. Основные лог-сообщения включают:
