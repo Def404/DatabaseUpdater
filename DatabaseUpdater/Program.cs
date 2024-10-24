@@ -136,6 +136,11 @@ internal class Program
 				Console.Write("\r" + new string(' ', Console.BufferWidth) + "\r");
 				Console.WriteLine("================");
 
+				if(ContainsProhibitedSqlCommands(sqlCommand))
+				{
+					_logger.LogError("Введена запрещенная SQL команда.");
+					continue;
+				}
 
 				await ExecuteSqlAsync(sqlCommand, databases);
 			}
@@ -177,6 +182,12 @@ internal class Program
 				return;
 			}
 
+			if (ContainsProhibitedSqlCommands(query))
+			{
+				_logger.LogError("Введена запрещенная SQL команда.");
+				return;
+			}
+
 			await ExecuteSqlAsync(query, databases);
 
 			return;
@@ -196,6 +207,12 @@ internal class Program
 			if (String.IsNullOrEmpty(query))
 			{
 				_logger.LogError("Не удалось получить SQL запрос из файла.");
+				return;
+			}
+
+			if (ContainsProhibitedSqlCommands(query))
+			{
+				_logger.LogError("Введена запрещенная SQL команда.");
 				return;
 			}
 
@@ -301,6 +318,12 @@ internal class Program
 		{
 			foreach (var database in databases)
 			{
+				if(database.NeedChange == false)
+				{
+					_logger.LogInformation($"Изменения для базы данных {database.Name} не требуются.");
+					continue;
+				}
+
 				Task task = new Task(() =>
 				{
 					_logger.LogInformation($"Начало обновления базы данных: {database.Name}");
@@ -333,5 +356,35 @@ internal class Program
 		{
 			_logger.LogError("Введена пустая SQL команда.");
 		}
+	}
+
+	private static bool ContainsProhibitedSqlCommands(string sqlCommand)
+	{
+		var prohibitedCommands = new List<string>
+		{
+			"CREATE DATABASE",
+			"DROP DATABASE",
+			"CREATE ROLE",
+			"ALTER ROLE",
+			"DROP ROLE",
+			"ALTER SYSTEM",
+			"CREATE EXTENSION",
+			"DROP EXTENSION",
+			"GRANT",
+			"REVOKE",
+			"DROP TABLE",
+			"DROP SCHEMA",
+			"TRUNCATE"
+		};
+
+		foreach (var command in prohibitedCommands)
+		{
+			if (sqlCommand.ToUpper().Contains(command))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
