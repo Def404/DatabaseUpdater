@@ -318,6 +318,12 @@ internal class Program
 		{
 			foreach (var database in databases)
 			{
+				if(database.NeedChange == false)
+				{
+					_logger.LogInformation($"Изменения для базы данных {database.Name} не требуются.");
+					continue;
+				}
+
 				Task task = new Task(() =>
 				{
 					_logger.LogInformation($"Начало обновления базы данных: {database.Name}");
